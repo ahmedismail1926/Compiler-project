@@ -17,6 +17,7 @@ FLOAT       {DIGIT}+"."{DIGIT}+
 WHITESPACE  [ \t\r]+
 
 %%
+
 "int"       { return INT; }
 "float"     { return FLOAT; }
 "void"      { return VOID; }
@@ -32,10 +33,23 @@ WHITESPACE  [ \t\r]+
 "default"   { return DEFAULT; }
 "const"     { return CONST; }
 
-{ID}        { return IDENTIFIER; }
 
-{FLOAT}     { return FLOAT_NUM; }
-{INTEGER}   { return INTEGER_NUM; }
+{ID} {
+    yylval.str = strdup(yytext);
+    return IDENTIFIER;
+}
+
+
+{FLOAT} {
+    yylval.str = strdup(yytext);
+    return FLOAT_NUM;
+}
+
+{INTEGER} {
+    yylval.str = strdup(yytext);
+    return INTEGER_NUM;
+}
+
 
 "=="        { return EQ; }
 "!="        { return NE; }
@@ -53,6 +67,7 @@ WHITESPACE  [ \t\r]+
 "<"         { return LT; }
 ">"         { return GT; }
 
+
 ";"         { return SEMICOLON; }
 ","         { return COMMA; }
 ":"         { return COLON; }
@@ -61,12 +76,16 @@ WHITESPACE  [ \t\r]+
 "("         { return LPAREN; }
 ")"         { return RPAREN; }
 
+
 {WHITESPACE}    { }
+
 
 "\n"        { line_num++; }
 
+
 "//".*      { }
 
+/* Multi-line comments */
 "/*"        {
                 int c;
                 while ((c = input()) != 0) {
@@ -78,9 +97,12 @@ WHITESPACE  [ \t\r]+
                 }
             }
 
-.           {
-                fprintf(stderr, "Lexical error: Unrecognized character '%s' at line %d\n", yytext, line_num);
-                return LEXICAL_ERROR;
-            }
+
+. {
+    fprintf(stderr,
+        "Lexical error: Unrecognized character '%s' at line %d\n",
+        yytext, line_num);
+    return LEXICAL_ERROR;
+}
 
 %%

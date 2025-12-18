@@ -1,12 +1,38 @@
 %{
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "symtable.h"
+#include "quadruple.h"
 
 int yylex();
 void yyerror(const char *s);
 extern int line_num;
 extern FILE *yyin;
+extern char* yytext;
+
+typedef struct {
+    char* place;   /* temp name or identifier */
+    int type;      /* INT / FLOAT / VOID */
+} Attribute;
+
+
+static int temp_counter = 0;
+char* new_temp() {
+    char buf[20];
+    sprintf(buf, "t%d", temp_counter++);
+    return strdup(buf);
+}
+
 %}
+
+
+%union {
+    Attribute attr;
+    char* str;
+}
+
 
 %token INT FLOAT VOID
 %token IF ELSE WHILE FOR RETURN REPEAT UNTIL SWITCH CASE DEFAULT CONST
@@ -16,6 +42,11 @@ extern FILE *yyin;
 %token AND OR
 %token SEMICOLON COMMA COLON LBRACE RBRACE LPAREN RPAREN
 %token LEXICAL_ERROR
+
+
+%type <attr> expression simple_expression additive_expression term factor
+%type <attr> type_specifier
+
 
 %left OR
 %left AND
@@ -40,26 +71,55 @@ declaration:
     | fun_declaration
     ;
 
+
+
 var_declaration:
     type_specifier IDENTIFIER SEMICOLON
+    {
+        if (!insert_symbol($2, $1.type))
+            semantic_error("Redeclaration of variable", $2);
+    }
     | type_specifier IDENTIFIER ASSIGN expression SEMICOLON
+    {
+        if (!insert_symbol($2, $1.type))
+            semantic_error("Redeclaration of variable", $2);
+
+        if ($1.type != $4.type)
+            semantic_error("Type mismatch in initialization", $2);
+
+        mark_initialized($2);
+        gen_quad("=", $4.place, "", $2);
+    }
     | CONST type_specifier IDENTIFIER ASSIGN expression SEMICOLON
+    {
+        if (!insert_const($3, $2.type))
+            semantic_error("Redeclaration of constant", $3);
+
+        gen_quad("=", $5.place, "", $3);
+    }
     ;
 
+
+
 type_specifier:
-    INT
-    | FLOAT
-    | VOID
+    INT   { $$ = (Attribute){ .type = INT }; }
+    | FLOAT { $$ = (Attribute){ .type = FLOAT }; }
+    | VOID  { $$ = (Attribute){ .type = VOID }; }
     ;
+
+
 
 fun_declaration:
     type_specifier IDENTIFIER LPAREN params RPAREN compound_stmt
+    {
+        insert_function($2, $1.type);
+    }
     ;
 
 params:
     param_list
     | VOID
-    |
+    | 
     ;
 
 param_list:
@@ -69,20 +129,35 @@ param_list:
 
 param:
     type_specifier IDENTIFIER
+    {
+        insert_symbol($2, $1.type);
+        mark_initialized($2);
+    }
     ;
 
+
+
 compound_stmt:
-    LBRACE local_declarations statement_list RBRACE
+    LBRACE
+    {
+        enter_scope();
+    }
+    local_declarations statement_list
+    RBRACE
+    {
+        check_unused_variables();
+        exit_scope();
+    }
     ;
 
 local_declarations:
     local_declarations var_declaration
-    |
+    | 
     ;
 
 statement_list:
     statement_list statement
-    |
+    | 
     ;
 
 statement:
@@ -93,6 +168,8 @@ statement:
     | return_stmt
     | switch_stmt
     ;
+
+/* ================= STATEMENTS ================= */
 
 expression_stmt:
     expression SEMICOLON
@@ -107,7 +184,6 @@ selection_stmt:
 iteration_stmt:
     WHILE LPAREN expression RPAREN statement
     | FOR LPAREN expression_stmt expression_stmt expression RPAREN statement
-    | FOR LPAREN expression_stmt expression_stmt RPAREN statement
     | REPEAT compound_stmt UNTIL LPAREN expression RPAREN SEMICOLON
     ;
 
@@ -134,65 +210,106 @@ default_case:
     DEFAULT COLON statement_list
     ;
 
+/* ================= EXPRESSIONS ================= */
+
 expression:
     IDENTIFIER ASSIGN expression
+    {
+        if (!is_declared($1))
+            semantic_error("Assignment to undeclared variable", $1);
+
+        gen_quad("=", $3.place, "", $1);
+        mark_initialized($1);
+        $$ = $3;
+    }
     | simple_expression
+    {
+        $$ = $1;
+    }
     ;
 
 simple_expression:
-    additive_expression relop additive_expression
-    | additive_expression
-    ;
-
-relop:
-    LE
-    | LT
-    | GT
-    | GE
-    | EQ
-    | NE
+    additive_expression
+    | additive_expression LT additive_expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad("<", $1.place, $3.place, $$.place);
+    }
+    | additive_expression GT additive_expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad(">", $1.place, $3.place, $$.place);
+    }
+    | additive_expression EQ additive_expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad("==", $1.place, $3.place, $$.place);
+    }
     ;
 
 additive_expression:
-    additive_expression addop term
+    additive_expression PLUS term
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = $1.type };
+        gen_quad("+", $1.place, $3.place, $$.place);
+    }
+    | additive_expression MINUS term
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = $1.type };
+        gen_quad("-", $1.place, $3.place, $$.place);
+    }
     | term
-    ;
-
-addop:
-    PLUS
-    | MINUS
+    {
+        $$ = $1;
+    }
     ;
 
 term:
-    term mulop factor
+    term MULT factor
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = $1.type };
+        gen_quad("*", $1.place, $3.place, $$.place);
+    }
+    | term DIV factor
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = $1.type };
+        gen_quad("/", $1.place, $3.place, $$.place);
+    }
     | factor
-    ;
-
-mulop:
-    MULT
-    | DIV
+    {
+        $$ = $1;
+    }
     ;
 
 factor:
     LPAREN expression RPAREN
+    {
+        $$ = $2;
+    }
     | IDENTIFIER
-    | call
+    {
+        if (!is_declared($1))
+            semantic_error("Variable used before declaration", $1);
+
+        if (!is_initialized($1))
+            semantic_error("Variable used before initialization", $1);
+
+        mark_used($1);
+        $$ = (Attribute){
+            .place = strdup($1),
+            .type = get_type($1)
+        };
+    }
     | INTEGER_NUM
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad("=", yytext, "", $$.place);
+    }
     | FLOAT_NUM
-    ;
-
-call:
-    IDENTIFIER LPAREN args RPAREN
-    ;
-
-args:
-    arg_list
-    |
-    ;
-
-arg_list:
-    arg_list COMMA expression
-    | expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = FLOAT };
+        gen_quad("=", yytext, "", $$.place);
+    }
     ;
 
 %%
@@ -209,12 +326,17 @@ int main(int argc, char **argv) {
 
     yyin = fopen(argv[1], "r");
     if (!yyin) {
-        fprintf(stderr, "Error: Cannot open file %s\n", argv[1]);
+        fprintf(stderr, "Cannot open file %s\n", argv[1]);
         return 1;
     }
 
+    init_symbol_table();
+    init_quadruples();
+
     if (yyparse() == 0) {
-        printf("Success\n");
+        printf("\nParsing completed successfully\n");
+        print_symbol_table();
+        print_quadruples();
     }
 
     fclose(yyin);
