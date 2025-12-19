@@ -10,11 +10,11 @@ int yylex();
 void yyerror(const char *s);
 extern int line_num;
 extern FILE *yyin;
-extern char* yytext;
+
 
 typedef struct {
-    char* place;   /* temp name or identifier */
-    int type;      /* INT / FLOAT / VOID */
+    char* place;
+    int type;
 } Attribute;
 
 
@@ -24,7 +24,6 @@ char* new_temp() {
     sprintf(buf, "t%d", temp_counter++);
     return strdup(buf);
 }
-
 %}
 
 
@@ -36,7 +35,8 @@ char* new_temp() {
 
 %token INT FLOAT VOID
 %token IF ELSE WHILE FOR RETURN REPEAT UNTIL SWITCH CASE DEFAULT CONST
-%token IDENTIFIER INTEGER_NUM FLOAT_NUM
+%token <str> IDENTIFIER
+%token <str> INTEGER_NUM FLOAT_NUM
 %token PLUS MINUS MULT DIV ASSIGN
 %token EQ NE LT GT LE GE
 %token AND OR
@@ -99,8 +99,6 @@ var_declaration:
     }
     ;
 
-
-
 type_specifier:
     INT   { $$ = (Attribute){ .type = INT }; }
     | FLOAT { $$ = (Attribute){ .type = FLOAT }; }
@@ -112,14 +110,15 @@ type_specifier:
 fun_declaration:
     type_specifier IDENTIFIER LPAREN params RPAREN compound_stmt
     {
-        insert_function($2, $1.type);
+        if (!insert_function($2, $1.type))
+            semantic_error("Redeclaration of function", $2);
     }
     ;
 
 params:
     param_list
     | VOID
-    | 
+    |
     ;
 
 param_list:
@@ -152,12 +151,12 @@ compound_stmt:
 
 local_declarations:
     local_declarations var_declaration
-    | 
+    |
     ;
 
 statement_list:
     statement_list statement
-    | 
+    |
     ;
 
 statement:
@@ -169,7 +168,7 @@ statement:
     | switch_stmt
     ;
 
-/* ================= STATEMENTS ================= */
+
 
 expression_stmt:
     expression SEMICOLON
@@ -218,6 +217,9 @@ expression:
         if (!is_declared($1))
             semantic_error("Assignment to undeclared variable", $1);
 
+        if (is_const($1))
+            semantic_error("Cannot assign to constant", $1);
+
         gen_quad("=", $3.place, "", $1);
         mark_initialized($1);
         $$ = $3;
@@ -244,6 +246,21 @@ simple_expression:
     {
         $$ = (Attribute){ .place = new_temp(), .type = INT };
         gen_quad("==", $1.place, $3.place, $$.place);
+    }
+    | additive_expression LE additive_expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad("<=", $1.place, $3.place, $$.place);
+    }
+    | additive_expression GE additive_expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad(">=", $1.place, $3.place, $$.place);
+    }
+    | additive_expression NE additive_expression
+    {
+        $$ = (Attribute){ .place = new_temp(), .type = INT };
+        gen_quad("!=", $1.place, $3.place, $$.place);
     }
     ;
 
@@ -295,20 +312,17 @@ factor:
             semantic_error("Variable used before initialization", $1);
 
         mark_used($1);
-        $$ = (Attribute){
-            .place = strdup($1),
-            .type = get_type($1)
-        };
+        $$ = (Attribute){ .place = strdup($1), .type = get_type($1) };
     }
     | INTEGER_NUM
     {
         $$ = (Attribute){ .place = new_temp(), .type = INT };
-        gen_quad("=", yytext, "", $$.place);
+        gen_quad("=", $1, "", $$.place);
     }
     | FLOAT_NUM
     {
         $$ = (Attribute){ .place = new_temp(), .type = FLOAT };
-        gen_quad("=", yytext, "", $$.place);
+        gen_quad("=", $1, "", $$.place);
     }
     ;
 
