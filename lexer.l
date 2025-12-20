@@ -13,7 +13,7 @@ DIGIT       [0-9]
 LETTER      [a-zA-Z]
 ID          {LETTER}({LETTER}|{DIGIT}|_)*
 INTEGER     {DIGIT}+
-FLOAT       {DIGIT}+"."{DIGIT}+
+FLOATNUM    {DIGIT}+"."{DIGIT}+
 WHITESPACE  [ \t\r]+
 
 %%
@@ -32,6 +32,11 @@ WHITESPACE  [ \t\r]+
 "case"      { return CASE; }
 "default"   { return DEFAULT; }
 "const"     { return CONST; }
+"break"     { return BREAK; }
+
+
+"true"      { return TRUE; }
+"false"     { return FALSE; }
 
 
 {ID} {
@@ -40,7 +45,7 @@ WHITESPACE  [ \t\r]+
 }
 
 
-{FLOAT} {
+{FLOATNUM} {
     yylval.str = strdup(yytext);
     return FLOAT_NUM;
 }
@@ -58,6 +63,7 @@ WHITESPACE  [ \t\r]+
 
 "&&"        { return AND; }
 "||"        { return OR; }
+"!"         { return NOT; } 
 
 "+"         { return PLUS; }
 "-"         { return MINUS; }
@@ -85,7 +91,6 @@ WHITESPACE  [ \t\r]+
 
 "//".*      { }
 
-/* Multi-line comments */
 "/*"        {
                 int c;
                 while ((c = input()) != 0) {

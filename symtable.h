@@ -1,50 +1,72 @@
 #ifndef SYMTABLE_H
 #define SYMTABLE_H
 
-/*  Symbol kind */
+
+typedef enum {
+    TYPE_INT = 1,
+    TYPE_FLOAT = 2,
+    TYPE_VOID = 3
+} DataType;
+
+
 typedef enum {
     SYMBOL_VAR,
     SYMBOL_CONST,
     SYMBOL_FUNC
 } SymbolKind;
 
-/* Symbol table entry */
+/* ===== Parameter Structure ===== */
+typedef struct Param {
+    char* name;
+    DataType type;
+    struct Param* next;
+} Param;
+
+/* ===== Symbol Structure ===== */
 typedef struct Symbol {
     char* name;
-    int type;               // INT, FLOAT, VOID
+    DataType type;               
     SymbolKind kind;
     int scope_level;
     int initialized;
     int used;
+    int param_count;
+    Param* params; 
     struct Symbol* next;
 } Symbol;
 
-/*  Symbol table initialization */
-void init_symbol_table();
 
-/* Scope handling */
-void enter_scope();
-void exit_scope();
+void init_symbol_table(void);
+void cleanup_symbol_table(void);
 
-/* Insertions */
-int insert_symbol(const char* name, int type);
-int insert_const(const char* name, int type);
-int insert_function(const char* name, int type);
 
-/* Lookups */
+void enter_scope(void);
+void exit_scope(void);
+
+
+int insert_symbol(const char* name, DataType type);
+int insert_const(const char* name, DataType type);
+int insert_function(const char* name, DataType type);
+
+
+void add_function_param(const char* func_name, const char* param_name, DataType param_type);
+int get_function_param_count(const char* func_name);
+DataType get_function_param_type(const char* func_name, int param_index);
+DataType get_function_type(const char* func_name);
+
+
 int is_declared(const char* name);
-int get_type(const char* name);
+int is_accessible(const char* name);  
+DataType get_type(const char* name);
+int is_const(const char* name);
+int is_function(const char* name);
 
-/* Semantic checks */
 void mark_initialized(const char* name);
 int is_initialized(const char* name);
 void mark_used(const char* name);
-void check_unused_variables();
+void check_unused_variables(void);
 
-/* Error reporting */
-void semantic_error(const char* msg, const char* name);
 
-/* Debug output */
-void print_symbol_table();
+void print_symbol_table(void);
 
 #endif

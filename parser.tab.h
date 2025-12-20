@@ -69,21 +69,38 @@
      GE = 285,
      AND = 286,
      OR = 287,
-     SEMICOLON = 288,
-     COMMA = 289,
-     COLON = 290,
-     LBRACE = 291,
-     RBRACE = 292,
-     LPAREN = 293,
-     RPAREN = 294,
-     LEXICAL_ERROR = 295
+     NOT = 288,
+     SEMICOLON = 289,
+     COMMA = 290,
+     COLON = 291,
+     LBRACE = 292,
+     RBRACE = 293,
+     LPAREN = 294,
+     RPAREN = 295,
+     LEXICAL_ERROR = 296,
+     TRUE = 297,
+     FALSE = 298
    };
 #endif
 
 
 
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
-typedef int YYSTYPE;
+typedef union YYSTYPE
+{
+
+/* Line 1676 of yacc.c  */
+#line 25 "parser.y"
+
+    Attribute attr;
+    char* str;
+    int num;
+
+
+
+/* Line 1676 of yacc.c  */
+#line 103 "parser.tab.h"
+} YYSTYPE;
 # define YYSTYPE_IS_TRIVIAL 1
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
