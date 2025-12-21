@@ -110,7 +110,9 @@ int insert_symbol(const char* name, DataType type) {
     symbol_table = new_symbol;
     
     return 1;
-//Insert Constant Symbol
+}
+
+/* ===== Insert Constant Symbol ===== */
 int insert_const(const char* name, DataType type) {
     /* Check if already declared in CURRENT scope only */
     if (lookup_current_scope_only(name)) {
