@@ -106,7 +106,10 @@ var_declaration:
         if (!insert_symbol($2, $1.type))
             yyerror("Redeclaration of variable");
 
-        if ($1.type != $4.type && !($1.type == TYPE_FLOAT && $4.type == TYPE_INT))
+        if ($1.type != $4.type && 
+            !($1.type == TYPE_FLOAT && $4.type == TYPE_INT) &&
+            !($1.type == TYPE_BOOL && $4.type == TYPE_INT) &&
+            !($1.type == TYPE_INT && $4.type == TYPE_BOOL))
             yyerror("Type mismatch in initialization");
 
         mark_initialized($2);
@@ -120,7 +123,10 @@ var_declaration:
         if (!insert_const($3, $2.type))
             yyerror("Redeclaration of constant");
 
-        if ($2.type != $5.type && !($2.type == TYPE_FLOAT && $5.type == TYPE_INT))
+        if ($2.type != $5.type && 
+            !($2.type == TYPE_FLOAT && $5.type == TYPE_INT) &&
+            !($2.type == TYPE_BOOL && $5.type == TYPE_INT) &&
+            !($2.type == TYPE_INT && $5.type == TYPE_BOOL))
             yyerror("Type mismatch in constant initialization");
 
         gen_assign($5.place, $3);
@@ -445,7 +451,9 @@ expression:
         }
         
         if (get_type($1) != $3.type && 
-            !(get_type($1) == TYPE_FLOAT && $3.type == TYPE_INT)){
+            !(get_type($1) == TYPE_FLOAT && $3.type == TYPE_INT) &&
+            !(get_type($1) == TYPE_BOOL && $3.type == TYPE_INT) &&
+            !(get_type($1) == TYPE_INT && $3.type == TYPE_BOOL)){
                 yyerror("Type mismatch in assignment");
                 YYERROR;
             }
