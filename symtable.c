@@ -57,44 +57,8 @@ void exit_scope(void) {
         fprintf(stderr, "Warning: Cannot exit global scope\n");
         return;
     }
-    
-    Symbol* current = symbol_table;
-    Symbol* previous = NULL;
-    
-    while (current) {
-        if (current->scope_level == current_scope) {
-            /* Remove symbol from table */
-            if (previous) {
-                previous->next = current->next;
-            } else {
-                symbol_table = current->next;
-            }
-            
-            Symbol* to_free = current;
-            current = current->next;
-            
-            /* Free resources */
-            if (to_free->kind == SYMBOL_FUNC) {
-                Param* param = to_free->params;
-                while (param) {
-                    Param* next_param = param->next;
-                    free(param->name);
-                    free(param);
-                    param = next_param;
-                }
-            }
-            
-            free(to_free->name);
-            free(to_free);
-        } else {
-            previous = current;
-            current = current->next;
-        }
-    }
-    
     current_scope--;
 }
-
 /* ===== Lookup symbol in CURRENT scope only ===== */
 static Symbol* lookup_current_scope_only(const char* name) {
     Symbol* current = symbol_table;
@@ -366,7 +330,6 @@ void print_symbol_table(void) {
     printf("-------------------------------------------------------------------------------\n");
     
     while (current) {
-        /* Build parameter string */
         char param_str[50] = "";
         if (current->kind == SYMBOL_FUNC && current->param_count > 0) {
             strcat(param_str, "(");
