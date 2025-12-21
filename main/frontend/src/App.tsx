@@ -126,7 +126,7 @@ function App() {
       <nav className="h-12 bg-dark-surface border-b border-dark-border flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <div className="text-accent font-bold text-lg">⚡</div>
-          <h1 className="text-white font-semibold">Poor's men C-Like Compiler</h1>
+          <h1 className="text-white font-semibold">Poor man's C-Like Compiler</h1>
         </div>
         <button
           onClick={handleCompile}
