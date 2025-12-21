@@ -1,0 +1,46 @@
+# Build outputs
+main/build/
+build/
+*.exe
+*.o
+*.obj
+
+# Generated files
+main/output.txt
+main/error.txt
+main/quadruples.txt
+main/output.quads
+output.txt
+error.txt
+quadruples.txt
+output.quads
+lex.yy.c
+parser.tab.c
+parser.tab.h
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+env/
+venv/
+
+# Node.js
+node_modules/
+main/frontend/node_modules/
+.npm
+*.log
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

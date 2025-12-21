@@ -8,8 +8,8 @@
 
 typedef struct {
     char op[10];      /* operation: JMP, JF, JT, CALL, RET, LABEL, ADD, SUB, etc. */
-    char arg1[20];    /* first operand */
-    char arg2[20];    /* second operand */
+    char arg1[20];    /* first op */
+    char arg2[20];    /* second op */
     char result[20];  /* result or label */
 } Quadruple;
 

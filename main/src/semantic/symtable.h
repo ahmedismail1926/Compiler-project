@@ -5,7 +5,9 @@
 typedef enum {
     TYPE_INT = 1,
     TYPE_FLOAT = 2,
-    TYPE_VOID = 3
+    TYPE_CHAR = 3,
+    TYPE_BOOL = 4,
+    TYPE_VOID = 5
 } DataType;
 
 
@@ -68,5 +70,6 @@ void check_unused_variables(void);
 
 
 void print_symbol_table(void);
+void save_symbol_table(const char* filename);
 
 #endif

@@ -31,11 +31,13 @@ char* current_function = NULL;
 }
 
 
-%token INT FLOAT VOID 
-%token IF ELSE WHILE FOR RETURN REPEAT UNTIL SWITCH CASE DEFAULT CONST
+%token INT FLOAT CHAR BOOL VOID 
+%token IF ELSE WHILE DO FOR RETURN BREAK CONTINUE REPEAT UNTIL SWITCH CASE DEFAULT CONST
 %token <str> IDENTIFIER
-%token <str> INTEGER_NUM FLOAT_NUM
-%token PLUS MINUS MULT DIV ASSIGN
+%token <str> INTEGER_NUM FLOAT_NUM CHAR_LITERAL
+%token PLUS MINUS MULT DIV MOD ASSIGN
+%token INC DEC PLUS_ASSIGN MINUS_ASSIGN MULT_ASSIGN DIV_ASSIGN MOD_ASSIGN
+%token BIT_AND BIT_OR BIT_XOR BIT_NOT
 %token EQ NE LT GT LE GE
 %token AND OR NOT
 %token SEMICOLON COMMA COLON LBRACE RBRACE LPAREN RPAREN
@@ -43,19 +45,26 @@ char* current_function = NULL;
 %token TRUE FALSE
 
 %type <attr> expression simple_expr additive_expr term factor
-%type <attr> var_type fun_type
-%type <num> params param_list
+%type <attr> var_type fun_type arg
+%type <num> params param_list arg_list
 %type <str> relop
 
 /* Tell Bison to expect 1 shift/reduce conflict (dangling else) */
 %expect 1
 
-/* Standard precedence */
-%right NOT
-%left AND OR
-%left EQ NE LT GT LE GE
+/* Standard precedence - lowest to highest */
+%right ASSIGN PLUS_ASSIGN MINUS_ASSIGN MULT_ASSIGN DIV_ASSIGN MOD_ASSIGN
+%left OR
+%left AND
+%left BIT_OR
+%left BIT_XOR
+%left BIT_AND
+%left EQ NE
+%left LT GT LE GE
 %left PLUS MINUS
-%left MULT DIV
+%left MULT DIV MOD
+%right NOT BIT_NOT
+%right INC DEC
 
 %%
 
@@ -77,6 +86,8 @@ declaration:
 var_type
     : INT   { $$.type = TYPE_INT; $$.place = NULL; $$.is_label = 0; }
     | FLOAT { $$.type = TYPE_FLOAT; $$.place = NULL; $$.is_label = 0; }
+    | CHAR  { $$.type = TYPE_CHAR; $$.place = NULL; $$.is_label = 0; }
+    | BOOL  { $$.type = TYPE_BOOL; $$.place = NULL; $$.is_label = 0; }
     ;
 
 /* FIXED: Simplified - only VOID for functions */
@@ -169,6 +180,27 @@ param:
     }
     ;
 
+arg_list:
+    arg_list COMMA arg
+    {
+        $$ = $1 + 1;
+    }
+    | arg
+    {
+        $$ = 1;
+    }
+    ;
+
+arg:
+    expression
+    {
+        /* Generate PARAM quadruple for each argument */
+        gen_quad("PARAM", $1.place, "", "");
+        $$ = $1;
+        free_temp_label($1.place);
+    }
+    ;
+
 compound_stmt:
     LBRACE
     {
@@ -199,6 +231,7 @@ statement:
     | iteration_stmt
     | return_stmt
     | switch_stmt
+    | jump_stmt
     ;
 
 expression_stmt:
@@ -297,6 +330,24 @@ iteration_stmt:
         free_temp_label(start_label);
         free_temp_label($5.place);
     }
+    | DO statement WHILE LPAREN expression RPAREN SEMICOLON
+    {
+        if ($5.type != TYPE_INT && $5.type != TYPE_BOOL)
+            yyerror("Condition must be boolean/int");
+        
+        char* start_label = new_label();
+        char* end_label = new_label();
+        
+        gen_label(start_label);
+        /* statement body already executed */
+        gen_jump_false($5.place, end_label);
+        gen_jump(start_label);
+        gen_label(end_label);
+        
+        free_temp_label(start_label);
+        free_temp_label(end_label);
+        free_temp_label($5.place);
+    }
     ;
 
 return_stmt:
@@ -308,6 +359,19 @@ return_stmt:
     {
         gen_return($2.place);
         free_temp_label($2.place);
+    }
+    ;
+
+jump_stmt:
+    BREAK SEMICOLON
+    {
+        /* Generate BREAK quadruple - loop handling will be improved later */
+        gen_quad("BREAK", "", "", "");
+    }
+    | CONTINUE SEMICOLON
+    {
+        /* Generate CONTINUE quadruple - loop handling will be improved later */
+        gen_quad("CONTINUE", "", "", "");
     }
     ;
 
@@ -391,6 +455,96 @@ expression:
         
         free_temp_label($3.place);
     }
+    | IDENTIFIER PLUS_ASSIGN expression
+    {
+        if (!is_declared($1)) { yyerror("Assignment to undeclared variable"); YYERROR; }
+        if (is_const($1)) { yyerror("Cannot assign to constant"); YYERROR; }
+        
+        char* temp = new_temp();
+        gen_add($1, $3.place, temp);
+        gen_assign(temp, $1);
+        mark_initialized($1);
+        mark_used($1);
+        
+        $$.place = strdup($1);
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        
+        free_temp_label(temp);
+        free_temp_label($3.place);
+    }
+    | IDENTIFIER MINUS_ASSIGN expression
+    {
+        if (!is_declared($1)) { yyerror("Assignment to undeclared variable"); YYERROR; }
+        if (is_const($1)) { yyerror("Cannot assign to constant"); YYERROR; }
+        
+        char* temp = new_temp();
+        gen_sub($1, $3.place, temp);
+        gen_assign(temp, $1);
+        mark_initialized($1);
+        mark_used($1);
+        
+        $$.place = strdup($1);
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        
+        free_temp_label(temp);
+        free_temp_label($3.place);
+    }
+    | IDENTIFIER MULT_ASSIGN expression
+    {
+        if (!is_declared($1)) { yyerror("Assignment to undeclared variable"); YYERROR; }
+        if (is_const($1)) { yyerror("Cannot assign to constant"); YYERROR; }
+        
+        char* temp = new_temp();
+        gen_mult($1, $3.place, temp);
+        gen_assign(temp, $1);
+        mark_initialized($1);
+        mark_used($1);
+        
+        $$.place = strdup($1);
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        
+        free_temp_label(temp);
+        free_temp_label($3.place);
+    }
+    | IDENTIFIER DIV_ASSIGN expression
+    {
+        if (!is_declared($1)) { yyerror("Assignment to undeclared variable"); YYERROR; }
+        if (is_const($1)) { yyerror("Cannot assign to constant"); YYERROR; }
+        
+        char* temp = new_temp();
+        gen_div($1, $3.place, temp);
+        gen_assign(temp, $1);
+        mark_initialized($1);
+        mark_used($1);
+        
+        $$.place = strdup($1);
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        
+        free_temp_label(temp);
+        free_temp_label($3.place);
+    }
+    | IDENTIFIER MOD_ASSIGN expression
+    {
+        if (!is_declared($1)) { yyerror("Assignment to undeclared variable"); YYERROR; }
+        if (is_const($1)) { yyerror("Cannot assign to constant"); YYERROR; }
+        
+        char* temp = new_temp();
+        gen_quad("MOD", $1, $3.place, temp);
+        gen_assign(temp, $1);
+        mark_initialized($1);
+        mark_used($1);
+        
+        $$.place = strdup($1);
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        
+        free_temp_label(temp);
+        free_temp_label($3.place);
+    }
     | simple_expr
     {
         $$ = $1;
@@ -400,11 +554,13 @@ expression:
 simple_expr:
     simple_expr AND simple_expr
     {
-        if ($1.type != TYPE_INT || $3.type != TYPE_INT)
+        if ($1.type != TYPE_INT && $1.type != TYPE_BOOL)
+            yyerror("Logical AND requires boolean/int operands");
+        if ($3.type != TYPE_INT && $3.type != TYPE_BOOL)
             yyerror("Logical AND requires boolean/int operands");
         
         $$.place = new_temp();
-        $$.type = TYPE_INT;
+        $$.type = TYPE_BOOL;
         $$.is_label = 0;
         
         gen_quad("AND", $1.place, $3.place, $$.place);
@@ -414,11 +570,13 @@ simple_expr:
     }
     | simple_expr OR simple_expr
     {
-        if ($1.type != TYPE_INT || $3.type != TYPE_INT)
+        if ($1.type != TYPE_INT && $1.type != TYPE_BOOL)
+            yyerror("Logical OR requires boolean/int operands");
+        if ($3.type != TYPE_INT && $3.type != TYPE_BOOL)
             yyerror("Logical OR requires boolean/int operands");
         
         $$.place = new_temp();
-        $$.type = TYPE_INT;
+        $$.type = TYPE_BOOL;
         $$.is_label = 0;
         
         gen_quad("OR", $1.place, $3.place, $$.place);
@@ -428,16 +586,49 @@ simple_expr:
     }
     | NOT simple_expr
     {
-        if ($2.type != TYPE_INT)
+        if ($2.type != TYPE_INT && $2.type != TYPE_BOOL)
             yyerror("Logical NOT requires boolean/int operand");
         
         $$.place = new_temp();
-        $$.type = TYPE_INT;
+        $$.type = TYPE_BOOL;
         $$.is_label = 0;
         
         gen_quad("NOT", $2.place, "", $$.place);
         
         free_temp_label($2.place);
+    }
+    | simple_expr BIT_AND simple_expr
+    {
+        $$.place = new_temp();
+        $$.type = TYPE_INT;
+        $$.is_label = 0;
+        
+        gen_quad("BIT_AND", $1.place, $3.place, $$.place);
+        
+        free_temp_label($1.place);
+        free_temp_label($3.place);
+    }
+    | simple_expr BIT_OR simple_expr
+    {
+        $$.place = new_temp();
+        $$.type = TYPE_INT;
+        $$.is_label = 0;
+        
+        gen_quad("BIT_OR", $1.place, $3.place, $$.place);
+        
+        free_temp_label($1.place);
+        free_temp_label($3.place);
+    }
+    | simple_expr BIT_XOR simple_expr
+    {
+        $$.place = new_temp();
+        $$.type = TYPE_INT;
+        $$.is_label = 0;
+        
+        gen_quad("BIT_XOR", $1.place, $3.place, $$.place);
+        
+        free_temp_label($1.place);
+        free_temp_label($3.place);
     }
     | additive_expr relop additive_expr
     {
@@ -517,6 +708,17 @@ term:
         free_temp_label($1.place);
         free_temp_label($3.place);
     }
+    | term MOD factor
+    {
+        $$.place = new_temp();
+        $$.type = TYPE_INT;  /* Modulo only for integers */
+        $$.is_label = 0;
+        
+        gen_quad("MOD", $1.place, $3.place, $$.place);
+        
+        free_temp_label($1.place);
+        free_temp_label($3.place);
+    }
     | factor
     {
         $$ = $1;
@@ -559,6 +761,17 @@ factor:
         
         gen_call($1, $$.place);
     }
+    | IDENTIFIER LPAREN arg_list RPAREN
+    {
+        if (!is_function($1))
+            yyerror("Call to undeclared function");
+        
+        $$.place = new_temp();
+        $$.type = get_function_type($1);
+        $$.is_label = 0;
+        
+        gen_call($1, $$.place);
+    }
     | INTEGER_NUM
     {
         $$.place = new_temp();
@@ -576,23 +789,118 @@ factor:
     | TRUE
     {
         $$.place = new_temp();
-        $$.type = TYPE_INT;
+        $$.type = TYPE_BOOL;
         $$.is_label = 0;
         gen_assign("1", $$.place);
     }
     | FALSE
     {
         $$.place = new_temp();
-        $$.type = TYPE_INT;
+        $$.type = TYPE_BOOL;
         $$.is_label = 0;
         gen_assign("0", $$.place);
+    }
+    | CHAR_LITERAL
+    {
+        $$.place = new_temp();
+        $$.type = TYPE_CHAR;
+        $$.is_label = 0;
+        gen_assign($1, $$.place);
+    }
+    | INC IDENTIFIER
+    {
+        /* Pre-increment: ++x */
+        if (!is_declared($2)) { yyerror("Variable used before declaration"); }
+        if (is_const($2)) { yyerror("Cannot modify constant"); }
+        
+        char* temp = new_temp();
+        gen_add($2, "1", temp);
+        gen_assign(temp, $2);
+        mark_used($2);
+        mark_initialized($2);
+        
+        $$.place = strdup($2);
+        $$.type = get_type($2);
+        $$.is_label = 0;
+        free_temp_label(temp);
+    }
+    | DEC IDENTIFIER
+    {
+        /* Pre-decrement: --x */
+        if (!is_declared($2)) { yyerror("Variable used before declaration"); }
+        if (is_const($2)) { yyerror("Cannot modify constant"); }
+        
+        char* temp = new_temp();
+        gen_sub($2, "1", temp);
+        gen_assign(temp, $2);
+        mark_used($2);
+        mark_initialized($2);
+        
+        $$.place = strdup($2);
+        $$.type = get_type($2);
+        $$.is_label = 0;
+        free_temp_label(temp);
+    }
+    | IDENTIFIER INC
+    {
+        /* Post-increment: x++ */
+        if (!is_declared($1)) { yyerror("Variable used before declaration"); }
+        if (is_const($1)) { yyerror("Cannot modify constant"); }
+        
+        $$.place = new_temp();
+        gen_assign($1, $$.place);  /* Save original value */
+        
+        char* temp = new_temp();
+        gen_add($1, "1", temp);
+        gen_assign(temp, $1);
+        mark_used($1);
+        mark_initialized($1);
+        
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        free_temp_label(temp);
+    }
+    | IDENTIFIER DEC
+    {
+        /* Post-decrement: x-- */
+        if (!is_declared($1)) { yyerror("Variable used before declaration"); }
+        if (is_const($1)) { yyerror("Cannot modify constant"); }
+        
+        $$.place = new_temp();
+        gen_assign($1, $$.place);  /* Save original value */
+        
+        char* temp = new_temp();
+        gen_sub($1, "1", temp);
+        gen_assign(temp, $1);
+        mark_used($1);
+        mark_initialized($1);
+        
+        $$.type = get_type($1);
+        $$.is_label = 0;
+        free_temp_label(temp);
+    }
+    | BIT_NOT factor
+    {
+        /* Bitwise NOT: ~x */
+        $$.place = new_temp();
+        $$.type = TYPE_INT;
+        $$.is_label = 0;
+        gen_quad("BIT_NOT", $2.place, "", $$.place);
+        free_temp_label($2.place);
     }
     ;
 
 %%
 
+static FILE* error_file = NULL;
+static int error_count = 0;
+
 void yyerror(const char *s) {
-    fprintf(stderr, "Syntax Error at line %d: %s\n", line_num, s);
+    fprintf(stderr, "Line [%d] --> Syntax Error: %s\n", line_num, s);
+    if (error_file) {
+        fprintf(error_file, "Line [%d] --> Syntax Error: %s\n", line_num, s);
+    }
+    error_count++;
 }
 
 int main(int argc, char **argv) {
@@ -607,21 +915,37 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    /* Open error file */
+    error_file = fopen("error.txt", "w");
+    
     init_symbol_table();
     init_quadruples();
 
-    if (yyparse() == 0) {
+    int parse_result = yyparse();
+    
+    if (parse_result == 0 && error_count == 0) {
         printf("\nParsing completed successfully\n");
         print_symbol_table();
         print_quadruples();
         
-        /* Save to file */
-        save_quadruples("output.quads");
+        /* Save to files */
+        save_quadruples("quadruples.txt");
+        save_symbol_table("output.txt");
+        
+        if (error_file) {
+            fprintf(error_file, "No errors found.\n");
+        }
+    } else {
+        printf("\nCompilation failed with %d error(s)\n", error_count);
     }
 
+    if (error_file) {
+        fclose(error_file);
+    }
+    
     fclose(yyin);
     cleanup_symbol_table();
     cleanup_quadruples();
     
-    return 0;
+    return (error_count > 0) ? 1 : 0;
 }

@@ -3,23 +3,21 @@
 #include <string.h>
 #include "symtable.h"
 
-/* ===== Global Variables ===== */
+/* global */
 static Symbol* symbol_table = NULL;
 static int current_scope = 0;
 
-/* ===== Helper Functions ===== */
+/*Helper Func*/
 static Symbol* lookup_current_scope_only(const char* name);
 static Symbol* lookup_accessible(const char* name);
 static const char* type_to_string(DataType type);
 static const char* kind_to_string(SymbolKind kind);
 
-/* ===== Initialize Symbol Table ===== */
 void init_symbol_table(void) {
     symbol_table = NULL;
     current_scope = 0;
 }
 
-/* ===== Cleanup Symbol Table ===== */
 void cleanup_symbol_table(void) {
     Symbol* current = symbol_table;
     
@@ -46,12 +44,10 @@ void cleanup_symbol_table(void) {
     current_scope = 0;
 }
 
-/* ===== Enter New Scope ===== */
 void enter_scope(void) {
     current_scope++;
 }
 
-/* ===== Exit Current Scope ===== */
 void exit_scope(void) {
     if (current_scope <= 0) {
         fprintf(stderr, "Warning: Cannot exit global scope\n");
@@ -59,7 +55,6 @@ void exit_scope(void) {
     }
     current_scope--;
 }
-/* ===== Lookup symbol in CURRENT scope only ===== */
 static Symbol* lookup_current_scope_only(const char* name) {
     Symbol* current = symbol_table;
     while (current) {
@@ -72,13 +67,11 @@ static Symbol* lookup_current_scope_only(const char* name) {
     return NULL;
 }
 
-/* ===== Lookup symbol in ANY accessible scope (current or outer) ===== */
 static Symbol* lookup_accessible(const char* name) {
     Symbol* current = symbol_table;
     Symbol* found = NULL;
     int nearest_scope = -1;
     
-    /* Find the nearest declaration in accessible scope */
     while (current) {
         if (strcmp(current->name, name) == 0) {
             /* Symbol found - check if it's in accessible scope */
@@ -96,7 +89,6 @@ static Symbol* lookup_accessible(const char* name) {
     return found;
 }
 
-/* ===== Insert Variable Symbol ===== */
 int insert_symbol(const char* name, DataType type) {
     /* Check if already declared in CURRENT scope only */
     if (lookup_current_scope_only(name)) {
@@ -118,9 +110,7 @@ int insert_symbol(const char* name, DataType type) {
     symbol_table = new_symbol;
     
     return 1;
-}
-
-/* ===== Insert Constant Symbol ===== */
+//Insert Constant Symbol
 int insert_const(const char* name, DataType type) {
     /* Check if already declared in CURRENT scope only */
     if (lookup_current_scope_only(name)) {
@@ -305,6 +295,8 @@ static const char* type_to_string(DataType type) {
     switch (type) {
         case TYPE_INT:   return "INT";
         case TYPE_FLOAT: return "FLOAT";
+        case TYPE_CHAR:  return "CHAR";
+        case TYPE_BOOL:  return "BOOL";
         case TYPE_VOID:  return "VOID";
         default:         return "UNKNOWN";
     }
@@ -354,4 +346,49 @@ void print_symbol_table(void) {
         current = current->next;
     }
     printf("===============================================================================\n");
+}
+
+/* ===== Save Symbol Table to File ===== */
+void save_symbol_table(const char* filename) {
+    FILE* file = fopen(filename, "w");
+    if (!file) {
+        fprintf(stderr, "Error: Cannot open file %s for writing\n", filename);
+        return;
+    }
+    
+    Symbol* current = symbol_table;
+    
+    fprintf(file, "========== SYMBOL TABLE ==========\n");
+    fprintf(file, "%-20s %-10s %-12s %-8s %-6s %-10s %-10s\n",
+        "Name", "Type", "Kind", "Scope", "Params", "Init", "Used");
+    fprintf(file, "-------------------------------------------------------------------------------\n");
+    
+    while (current) {
+        char param_str[50] = "";
+        if (current->kind == SYMBOL_FUNC && current->param_count > 0) {
+            strcat(param_str, "(");
+            Param* param = current->params;
+            while (param) {
+                strcat(param_str, type_to_string(param->type));
+                param = param->next;
+                if (param) strcat(param_str, ",");
+            }
+            strcat(param_str, ")");
+        }
+        
+        fprintf(file, "%-20s %-10s %-12s %-8d %-6s %-10s %-10s\n",
+            current->name,
+            type_to_string(current->type),
+            kind_to_string(current->kind),
+            current->scope_level,
+            param_str,
+            current->initialized ? "YES" : "NO",
+            current->used ? "YES" : "NO");
+        
+        current = current->next;
+    }
+    fprintf(file, "===============================================================================\n");
+    
+    fclose(file);
+    printf("Symbol table saved to '%s'\n", filename);
 }
