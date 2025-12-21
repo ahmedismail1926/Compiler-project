@@ -206,7 +206,7 @@ compound_stmt:
     {
         enter_scope();
     }
-    local_declarations statement_list
+    block_item_list
     RBRACE
     {
         check_unused_variables();
@@ -214,14 +214,14 @@ compound_stmt:
     }
     ;
 
-local_declarations:
-    local_declarations var_declaration
-    |
+block_item_list:
+    /* empty */
+    | block_item_list block_item
     ;
 
-statement_list:
-    statement_list statement
-    |
+block_item:
+    statement
+    | var_declaration
     ;
 
 statement:
@@ -406,7 +406,7 @@ case_list:
     ;
 
 case_stmt:
-    CASE INTEGER_NUM COLON statement_list
+    CASE INTEGER_NUM COLON case_body
     {
         char* case_label = new_label();
         gen_label(case_label);
@@ -415,12 +415,18 @@ case_stmt:
     ;
 
 default_case:
-    DEFAULT COLON statement_list
+    DEFAULT COLON case_body
     {
         char* default_label = new_label();
         gen_label(default_label);
         free_temp_label(default_label);
     }
+    ;
+
+/* Case body only allows statements (not declarations) - use { } for declarations */
+case_body:
+    /* empty */
+    | case_body statement
     ;
 
 expression:
