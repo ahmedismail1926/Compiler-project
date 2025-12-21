@@ -96,9 +96,11 @@ char* new_label(void) {
 }
 
 
-void free_temp_label(char* temp_or_label) {
-    if (temp_or_label) {
-        free(temp_or_label);
+void free_temp_label(char* s) {
+    if (!s) return;
+
+    if (s[0] == 't' || s[0] == 'L') {
+        free(s);
     }
 }
 

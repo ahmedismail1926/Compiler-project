@@ -32,7 +32,7 @@ WHITESPACE  [ \t\r]+
 "case"      { return CASE; }
 "default"   { return DEFAULT; }
 "const"     { return CONST; }
-"break"     { return BREAK; }
+
 
 
 "true"      { return TRUE; }

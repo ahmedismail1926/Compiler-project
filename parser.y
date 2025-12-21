@@ -1,32 +1,35 @@
+%code requires {
+    #include "symtable.h"
+
+    typedef struct {
+        char* place;
+        DataType type;
+        int is_label;
+    } Attribute;
+}
+
 %{
+#include "symtable.h"
+#include "quadruple.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "symtable.h"
-#include "quadruple.h"
-
 int yylex();
 void yyerror(const char *s);
 extern int line_num;
+extern char* yytext;  
 extern FILE *yyin;
 
 char* current_function = NULL;
 
-/* Simplified Attribute struct */
-typedef struct {
-    char* place;    /* temporary variable or label */
-    DataType type;  /* data type - using DataType enum */
-    int is_label;   /* 1 if place is a label, 0 if temp/variable */
-} Attribute;
-
 %}
-
 %union {
     Attribute attr;
     char* str;
     int num;
 }
+
 
 %token INT FLOAT VOID 
 %token IF ELSE WHILE FOR RETURN REPEAT UNTIL SWITCH CASE DEFAULT CONST
@@ -96,6 +99,7 @@ var_declaration:
             yyerror("Type mismatch in initialization");
 
         mark_initialized($2);
+        mark_used($2);
         gen_assign($4.place, $2);
         
         free_temp_label($4.place);
@@ -109,11 +113,12 @@ var_declaration:
             yyerror("Type mismatch in constant initialization");
 
         gen_assign($5.place, $3);
+        mark_used($3);
         free_temp_label($5.place);
     }
     ;
 
-/* FIXED: Allow functions to return int/float/void */
+
 fun_declaration:
     fun_type IDENTIFIER LPAREN params RPAREN compound_stmt
     {
@@ -152,7 +157,6 @@ param_list:
     }
     ;
 
-/* FIXED: Parameters can be int/float */
 param:
     var_type IDENTIFIER
     {
@@ -360,18 +364,26 @@ expression:
     {
         if (!is_declared($1)){
             yyerror("Assignment to undeclared variable");
+            YYERROR;
         }else if(!is_accessible($1)){
             yyerror("Variable not accessible in current scope");
+            YYERROR;
         }
-        if (is_const($1))
+        if (is_const($1)){
             yyerror("Cannot assign to constant");
+            YYERROR;
+        }
         
         if (get_type($1) != $3.type && 
-            !(get_type($1) == TYPE_FLOAT && $3.type == TYPE_INT))
-            yyerror("Type mismatch in assignment");
+            !(get_type($1) == TYPE_FLOAT && $3.type == TYPE_INT)){
+                yyerror("Type mismatch in assignment");
+                YYERROR;
+            }
+            
         
         gen_assign($3.place, $1);
         mark_initialized($1);
+        mark_used($1); 
         
         $$.place = strdup($1);
         $$.type = get_type($1);
@@ -580,11 +592,7 @@ factor:
 %%
 
 void yyerror(const char *s) {
-    fprintf(stderr, "Syntax Error at line %d: %s\n", line_num);
-    fprintf(stderr, "Error: %s\n", s);
-    if (yytext && strlen(yytext) > 0) {
-        fprintf(stderr, "Current token: '%s'\n", yytext);
-    }
+    fprintf(stderr, "Syntax Error at line %d: %s\n", line_num, s);
 }
 
 int main(int argc, char **argv) {

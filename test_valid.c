@@ -1,5 +1,7 @@
 int main() {
-    const x = 10; 
-    x = 5;  /* ERROR: x not visible here */
-    return 0;
+    int x;
+    float y=1.2;
+    int a = 10;
+    float b = 3.14;
+    const int MAX = 100;
 }

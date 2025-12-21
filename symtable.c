@@ -325,7 +325,7 @@ void mark_used(const char* name) {
 void check_unused_variables(void) {
     Symbol* current = symbol_table;
     
-    while (current) {
+    while (current != NULL) {
         if (current->kind == SYMBOL_VAR &&
             current->scope_level == current_scope &&
             !current->used) {
