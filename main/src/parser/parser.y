@@ -826,6 +826,10 @@ factor:
         if (!is_function($1))
             yyerror("Call to undeclared function");
         
+        int expected_count = get_function_param_count($1);
+        if (expected_count != $3)
+            yyerror("Wrong number of arguments in function call");
+        
         $$.place = new_temp();
         $$.type = get_function_type($1);
         $$.is_label = 0;
