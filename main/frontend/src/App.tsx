@@ -3,34 +3,89 @@ import Editor from '@monaco-editor/react';
 import axios from 'axios';
 
 // Default sample code
-const DEFAULT_CODE = `// C-Like Compiler - Sample Program
+const DEFAULT_CODE = `// Test program for C-Like Compiler
+
+// Variable declarations
+int a;
+int b = 5;
+float c = 3.14;
+const int MAX = 100;
+
+// Function declaration
 int factorial(int n) {
-    int result;
-    result = 1;
-    
-    while (n > 1) {
-        result = factorial(n - 1) * n;
-        n = n - 1;
+    if (n <= 1) {
+        return 1;
+    } else {
+        return n * factorial(n - 1);
     }
-    
-    return result;
 }
 
-int main() {
-    int x;
-    int y;
+// Main function
+void main() {
+    // Variable initialization
+    a = 10;
     
-    x = 5;
-    y = factorial(x);
+    // Arithmetic operations
+    int sum = a + b;
+    int diff = a - b;
+    int prod = a * b;
+    int quo = a / b;
+    int mod = a % b;
     
-    if (y > 100) {
-        x = x + 1;
+    // Compound assignment
+    sum += 5;
+    diff -= 2;
+    
+    // Relational expressions
+    bool isEqual = (a == b);
+    bool isGreater = (a > b);
+    
+    // Logical expressions
+    bool andResult = isEqual && isGreater;
+    bool orResult = isEqual || isGreater;
+    bool notResult = !isEqual;
+    
+    // Control structures
+    if (a > b) {
+        a = a + 1;
     } else {
-        x = x - 1;
+        b = b + 1;
     }
     
-    return 0;
+    // Loops
+    int i = 0;
+    while (i < 10) {
+        i = i + 1;
+    }
+    
+    for (i = 0; i < 5; i++) {
+        if (i == 3) {
+            continue;
+        }
+        a = a + i;
+    }
+    
+    i = 0;
+    do {
+        i = i + 1;
+    } while (i < 5);
+    
+    // Switch statement
+    switch (a) {
+        case 10:
+            a = 100;
+            break;
+        case 20:
+            a = 200;
+            break;
+        default:
+            a = 0;
+    }
+    
+    // Function call
+    int f = factorial(5);
 }
+
 `;
 
 type TabType = 'assembly' | 'scope' | 'errors';
