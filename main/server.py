@@ -85,7 +85,7 @@ def compile_code():
         
         # Add stderr to errors if present
         if result.stderr:
-            errors = result.stderr + '\n' + errors if errors else result.stderr
+            errors = result.stderr
         
         # Cleanup temp files
         try:
