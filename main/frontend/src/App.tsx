@@ -4,12 +4,24 @@ import axios from 'axios';
 
 // Default sample code
 const DEFAULT_CODE = `// C-Like Compiler - Sample Program
+int factorial(int n) {
+    int result;
+    result = 1;
+    
+    while (n > 1) {
+        result = result * n;
+        n = n - 1;
+    }
+    
+    return result;
+}
+
 int main() {
     int x;
     int y;
     
     x = 5;
-    y = 10;
+    y = factorial(x);
     
     if (y > 100) {
         x = x + 1;
