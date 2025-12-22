@@ -12,8 +12,8 @@ int line_num = 1;
 DIGIT       [0-9]
 LETTER      [a-zA-Z]
 ID          {LETTER}({LETTER}|{DIGIT}|_)*
-INTEGER     {DIGIT}+
-FLOATNUM    {DIGIT}+"."{DIGIT}+
+INTEGER     -?{DIGIT}+
+FLOATNUM    -?{DIGIT}+"."{DIGIT}+
 WHITESPACE  [ \t\r]+
 
 %%
