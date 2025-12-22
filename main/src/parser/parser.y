@@ -22,6 +22,7 @@ extern char* yytext;
 extern FILE *yyin;
 
 char* current_function = NULL;
+static int current_function_has_return = 0;
 
 %}
 %union {
@@ -142,9 +143,18 @@ fun_declaration:
         if (!insert_function($2, $1.type))
             yyerror("Redeclaration of function");
         current_function = strdup($2);
+        current_function_has_return = 0;
     }
     LPAREN params RPAREN compound_stmt
     {
+        /* If function is non-void, ensure at least one return was seen */
+        if (current_function != NULL) {
+            DataType ftype = get_function_type(current_function);
+            if (ftype != TYPE_VOID && !current_function_has_return) {
+                yyerror("Non-void function missing return");
+                YYERROR;
+            }
+        }
         free(current_function);
         current_function = NULL;
     }
@@ -153,9 +163,18 @@ fun_declaration:
         if (!insert_function($2, $1.type))
             yyerror("Redeclaration of function");
         current_function = strdup($2);
+        current_function_has_return = 0;
     }
     LPAREN params RPAREN compound_stmt  /* int/float functions */
     {
+        /* If function is non-void, ensure at least one return was seen */
+        if (current_function != NULL) {
+            DataType ftype = get_function_type(current_function);
+            if (ftype != TYPE_VOID && !current_function_has_return) {
+                yyerror("Non-void function missing return");
+                YYERROR;
+            }
+        }
         free(current_function);
         current_function = NULL;
     }
@@ -363,11 +382,34 @@ iteration_stmt:
 return_stmt:
     RETURN SEMICOLON
     {
+        DataType ftype = get_function_type(current_function);
+        if (ftype != TYPE_VOID) {
+            yyerror("Missing return value in non-void function");
+            YYERROR;
+        }
+            /* mark that this function has a return */
+            current_function_has_return = 1;
         gen_return("");
     }
     | RETURN expression SEMICOLON
     {
+        DataType ftype = get_function_type(current_function);
+        if (ftype == TYPE_VOID) {
+            yyerror("Return with value in void function");
+            YYERROR;
+        }
+
+        if (ftype != $2.type &&
+            !(ftype == TYPE_FLOAT && $2.type == TYPE_INT) &&
+            !(ftype == TYPE_BOOL && $2.type == TYPE_INT) &&
+            !(ftype == TYPE_INT && $2.type == TYPE_BOOL)) {
+            yyerror("Return type mismatch");
+            YYERROR;
+        }
+
         gen_return($2.place);
+            /* mark that this function has a return */
+            current_function_has_return = 1;
         free_temp_label($2.place);
     }
     ;
