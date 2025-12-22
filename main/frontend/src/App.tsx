@@ -4,24 +4,12 @@ import axios from 'axios';
 
 // Default sample code
 const DEFAULT_CODE = `// C-Like Compiler - Sample Program
-int factorial(int n) {
-    int result;
-    result = 1;
-    
-    while (n > 1) {
-        result = result * n;
-        n = n - 1;
-    }
-    
-    return result;
-}
-
 int main() {
     int x;
     int y;
     
     x = 5;
-    y = factorial(x);
+    y = 10;
     
     if (y > 100) {
         x = x + 1;
@@ -70,11 +58,17 @@ function App() {
         errors: data.errors || ''
       });
 
-      // Count errors
-      const errorLines = (data.errors || '').split('\n').filter((line: string) => 
-        line.toLowerCase().includes('error') || line.toLowerCase().includes('line [')
-      );
-      setErrorCount(data.success ? 0 : Math.max(1, errorLines.length));
+      // Count errors: only count meaningful error lines; treat 'No errors' specially
+      const errorsText = (data.errors || '').trim();
+      if (/no errors/i.test(errorsText)) {
+        setErrorCount(0);
+      } else {
+        const errorLines = errorsText.split('\n').filter((line: string) => {
+          const s = line.trim().toLowerCase();
+          return s.includes('error') || s.includes('line [') || /^\d+:\d+/.test(s);
+        });
+        setErrorCount(errorLines.length);
+      }
 
       // Switch to errors tab if there are errors
       if (!data.success) {

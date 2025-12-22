@@ -137,21 +137,25 @@ var_declaration:
 
 
 fun_declaration:
-    fun_type IDENTIFIER LPAREN params RPAREN compound_stmt
+    fun_type IDENTIFIER
     {
         if (!insert_function($2, $1.type))
             yyerror("Redeclaration of function");
-
         current_function = strdup($2);
+    }
+    LPAREN params RPAREN compound_stmt
+    {
         free(current_function);
         current_function = NULL;
     }
-    | var_type IDENTIFIER LPAREN params RPAREN compound_stmt  /* int/float functions */
+    | var_type IDENTIFIER
     {
         if (!insert_function($2, $1.type))
             yyerror("Redeclaration of function");
-
         current_function = strdup($2);
+    }
+    LPAREN params RPAREN compound_stmt  /* int/float functions */
+    {
         free(current_function);
         current_function = NULL;
     }
