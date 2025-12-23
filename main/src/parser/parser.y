@@ -83,7 +83,6 @@ declaration:
     | fun_declaration
     ;
 
-/* FIXED: Simplified to avoid conflicts */
 var_type
     : INT   { $$.type = TYPE_INT; $$.place = NULL; $$.is_label = 0; }
     | FLOAT { $$.type = TYPE_FLOAT; $$.place = NULL; $$.is_label = 0; }
@@ -91,7 +90,6 @@ var_type
     | BOOL  { $$.type = TYPE_BOOL; $$.place = NULL; $$.is_label = 0; }
     ;
 
-/* FIXED: Simplified - only VOID for functions */
 fun_type
     : VOID  { $$.type = TYPE_VOID; $$.place = NULL; $$.is_label = 0; }
     ;
