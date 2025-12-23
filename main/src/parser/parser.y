@@ -417,12 +417,10 @@ return_stmt:
 jump_stmt:
     BREAK SEMICOLON
     {
-        /* Generate BREAK quadruple - loop handling will be improved later */
         gen_quad("BREAK", "", "", "");
     }
     | CONTINUE SEMICOLON
     {
-        /* Generate CONTINUE quadruple - loop handling will be improved later */
         gen_quad("CONTINUE", "", "", "");
     }
     ;
